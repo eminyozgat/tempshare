@@ -1,0 +1,121 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>TempShare</title>
+  <link rel="stylesheet" href="css/style.css" />
+</head>
+<body>
+  
+  <header class="ts-header">
+    <div class="ts-container ts-header-inner">
+      <div class="ts-logo" onclick="window.location.reload()">Temp<span>Share</span></div>
+    </div>
+  </header>
+
+  <main class="ts-container ts-main">
+    
+    <section class="ts-hero">
+      <h1>Dosyalarını Güvenle Paylaş.</h1>
+      <p>Kayıt yok, iz yok. Dosyanı yükle, linki al ve paylaş. <strong>50MB</strong> limit.</p>
+      
+      <ul class="ts-feature-list">
+          <li>🚀 Hızlı Paylaşım (Ctrl+V)</li>
+          <li>🔒 Uçtan Uca Şifreleme</li>
+          <li>🔥 İndirilince Silinme</li>
+      </ul>
+    </section>
+
+    <section id="upload-section" class="ts-card">
+      <div class="ts-card-header">
+          <h2>Dosya Yükle</h2>
+          <span class="ts-limit-badge">Limit: 50MB</span>
+      </div>
+
+      <form id="upload-form">
+        <div class="ts-drop-zone" id="drop-zone">
+          <div class="ts-drop-icon">📂</div>
+          <p>Dosyaları sürükle, yapıştır (Ctrl+V) veya <span class="ts-browse-link">Gözat</span></p>
+          <input type="file" id="file" name="file[]" multiple hidden />
+        </div>
+
+        <ul id="file-list-container" class="ts-file-list"></ul>
+
+        <div class="ts-form-inline">
+          <div class="ts-form-group">
+            <label>Süre</label>
+            <select id="expiry-duration">
+              <option value="1h">1 Saat</option>
+              <option value="3h">3 Saat</option>
+              <option value="24h">24 Saat</option>
+            </select>
+          </div>
+          <div class="ts-form-group">
+            <label>İndirme Hakkı</label>
+            <input type="number" id="max-views" min="1" value="1" />
+          </div>
+        </div>
+
+        <div class="ts-form-group">
+          <label>Güvenlik (Opsiyonel)</label>
+          <input type="password" id="password" placeholder="Parola belirle" style="margin-bottom: 10px;" />
+          
+          <div class="ts-security-options">
+              <div class="ts-security-badge">
+                 <input type="checkbox" id="e2ee-check">
+                 <label for="e2ee-check">
+                    <span class="ts-shield-icon">🛡️</span>
+                    <span><strong>E2EE:</strong> Sunucu içeriği göremez.</span>
+                 </label>
+              </div>
+
+              <div class="ts-security-badge">
+                 <input type="checkbox" id="burn-check">
+                 <label for="burn-check">
+                    <span class="ts-shield-icon">🔥</span>
+                    <span><strong>Yak:</strong> İndirilince silinsin.</span>
+                 </label>
+              </div>
+          </div>
+        </div>
+
+        <button type="submit" class="ts-btn-primary" id="upload-btn">Link Oluştur</button>
+        
+        <div id="progress-container" class="ts-progress-container" style="display: none;">
+            <div class="ts-progress-track">
+                <div id="progress-fill" class="ts-progress-fill" style="width: 0%"></div>
+            </div>
+            <div class="ts-progress-info"><span id="progress-text">Yükleniyor...</span></div>
+        </div>
+      </form>
+    </section>
+
+    <section id="result-section" class="ts-card" style="display: none;">
+        <div class="ts-result-content">
+            <div class="ts-success-icon">🎉</div>
+            <h2>Dosyan Hazır!</h2>
+            
+            <div class="ts-link-box">
+                <input type="text" id="share-link" readonly value="..." />
+                <button id="copy-btn" class="ts-btn-icon" title="Kopyala">📋</button>
+            </div>
+
+            <div class="ts-qr-area">
+                <p>Mobil İndirme:</p>
+                <img id="qr-image" src="" alt="QR Kod Yükleniyor..." />
+            </div>
+
+            <button id="new-upload-btn" class="ts-btn-secondary">Yeni Dosya Gönder</button>
+        </div>
+    </section>
+
+  </main>
+
+  <footer class="ts-footer">
+    <div class="ts-container"><small>TempShare v1.0 &copy; 2025</small></div>
+  </footer>
+
+  <script src="js/app.js"></script>
+</body>
+</html>
