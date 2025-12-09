@@ -3,14 +3,29 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>TempShare</title>
+  <title>TempShare - Güvenli Dosya Paylaşımı</title>
   <link rel="stylesheet" href="css/style.css" />
 </head>
 <body>
   
   <header class="ts-header">
     <div class="ts-container ts-header-inner">
-      <div class="ts-logo" onclick="window.location.reload()">Temp<span>Share</span></div>
+      <div class="ts-left-nav">
+          <div class="ts-logo" id="logo-btn">Temp<span>Share</span></div>
+      </div>
+      
+      <nav class="ts-nav">
+        <button id="theme-toggle" class="ts-btn-icon" title="Temayı Değiştir">🌙</button>
+
+        <div id="guest-nav">
+            <button class="ts-btn-primary ts-btn-small" id="auth-trigger-btn">Giriş Yap / Kayıt Ol</button>
+        </div>
+
+        <div id="user-nav" style="display: none;">
+            <span class="ts-user-greeting">Merhaba, <strong id="user-name-display">Kullanıcı</strong></span>
+            <button class="ts-btn-text" id="logout-btn">Çıkış</button>
+        </div>
+      </nav>
     </div>
   </header>
 
@@ -18,19 +33,19 @@
     
     <section class="ts-hero">
       <h1>Dosyalarını Güvenle Paylaş.</h1>
-      <p>Kayıt yok, iz yok. Dosyanı yükle, linki al ve paylaş. <strong>50MB</strong> limit.</p>
+      <p id="hero-text">Misafir olarak <strong>50MB</strong>, üye olarak <strong>100MB</strong> yükleyebilirsin. Kayıt yok, iz yok.</p>
       
       <ul class="ts-feature-list">
-          <li>🚀 Hızlı Paylaşım (Ctrl+V)</li>
+          <li>🚀 Hızlı Paylaşım</li>
           <li>🔒 Uçtan Uca Şifreleme</li>
-          <li>🔥 İndirilince Silinme</li>
+          <li>🔥 Okunduktan Sonra Yak</li>
       </ul>
     </section>
 
     <section id="upload-section" class="ts-card">
       <div class="ts-card-header">
           <h2>Dosya Yükle</h2>
-          <span class="ts-limit-badge">Limit: 50MB</span>
+          <span class="ts-limit-badge" id="limit-badge">Limit: 50MB</span>
       </div>
 
       <form id="upload-form">
@@ -47,8 +62,8 @@
             <label>Süre</label>
             <select id="expiry-duration">
               <option value="1h">1 Saat</option>
-              <option value="3h">3 Saat</option>
               <option value="24h">24 Saat</option>
+              <option value="7d" disabled class="premium-option">7 Gün (Üye)</option> 
             </select>
           </div>
           <div class="ts-form-group">
@@ -58,8 +73,8 @@
         </div>
 
         <div class="ts-form-group">
-          <label>Güvenlik (Opsiyonel)</label>
-          <input type="password" id="password" placeholder="Parola belirle" style="margin-bottom: 10px;" />
+          <label>Güvenlik Ayarları</label>
+          <input type="password" id="password" placeholder="Parola (Opsiyonel)" style="margin-bottom: 10px;" />
           
           <div class="ts-security-options">
               <div class="ts-security-badge">
@@ -112,8 +127,56 @@
 
   </main>
 
+  <div id="auth-modal" class="ts-modal-overlay" style="display: none;">
+      <div class="ts-modal-content">
+          <button id="close-modal-btn" class="ts-close-btn">&times;</button>
+          
+          <div class="ts-auth-tabs">
+            <button class="ts-tab-btn active" id="tab-login">Giriş Yap</button>
+            <button class="ts-tab-btn" id="tab-register">Kayıt Ol</button>
+          </div>
+
+          <form id="login-form" class="ts-auth-form">
+            <div class="ts-form-group">
+                <label>E-Posta</label>
+                <input type="email" placeholder="mail@ornek.com" required>
+            </div>
+            <div class="ts-form-group">
+                <label>Şifre</label>
+                <input type="password" placeholder="******" required>
+            </div>
+            <button type="submit" class="ts-btn-primary">Giriş Yap</button>
+          </form>
+
+          <form id="register-form" class="ts-auth-form" style="display: none;">
+            <div style="display:none;">
+                <input type="text" name="honeypot" id="spam-trap" tabindex="-1" autocomplete="off">
+            </div>
+
+            <div class="ts-form-group">
+                <label>Ad Soyad</label>
+                <input type="text" id="reg-name" placeholder="Adınız" required minlength="2">
+            </div>
+            <div class="ts-form-group">
+                <label>E-Posta</label>
+                <input type="email" id="reg-email" placeholder="mail@ornek.com" required>
+            </div>
+            <div class="ts-form-group">
+                <label>Şifre</label>
+                <input type="password" id="reg-pass" placeholder="En az 6 karakter" required minlength="6">
+            </div>
+            <div class="ts-form-group">
+                <label>Şifre Tekrar</label>
+                <input type="password" id="reg-pass-confirm" placeholder="Tekrar girin" required>
+            </div>
+            <button type="submit" class="ts-btn-primary">Ücretsiz Kayıt Ol</button>
+            <p id="auth-error-msg" class="ts-error-text"></p>
+          </form>
+      </div>
+  </div>
+
   <footer class="ts-footer">
-    <div class="ts-container"><small>TempShare v1.0 &copy; 2025</small></div>
+    <div class="ts-container"><small>TempShare 1.0 Enterprise &copy; 2025</small></div>
   </footer>
 
   <script src="js/app.js"></script>
