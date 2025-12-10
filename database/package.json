@@ -1,0 +1,13 @@
+{
+  "name": "temp-share-db-benim",
+  "version": "1.0.0",
+  "type": "commonjs",
+  "main": "index.js",
+  "scripts": {
+    "test": "node index.js"
+  },
+  "dependencies": {
+    "better-sqlite3": "^12.5.0"
+  }
+}
+
