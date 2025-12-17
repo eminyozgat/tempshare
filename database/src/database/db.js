@@ -12,9 +12,9 @@ const db = new Database(dbPath, { verbose: console.log });
 db.pragma('journal_mode = WAL');
 db.pragma('foreign_keys = ON');
 
-console.log('Veritabanı bağlantısı (A-kisisi) -> ' + dbPath);
+console.log('Veritabanı bağlantısı (B-kisisi) -> ' + dbPath);
 
-// USERS + FILES şeması (raporlar yok)
+// USERS + FILES + ABUSE_REPORTS şeması (final)
 const createTablesQuery = `
     CREATE TABLE IF NOT EXISTS users (
         id TEXT PRIMARY KEY,
@@ -44,9 +44,19 @@ const createTablesQuery = `
         updated_at INTEGER DEFAULT (strftime('%s','now'))
     );
 
+    CREATE TABLE IF NOT EXISTS abuse_reports (
+        id TEXT PRIMARY KEY,
+        file_id TEXT REFERENCES files(id) ON DELETE CASCADE,
+        reporter_email TEXT,
+        title TEXT NOT NULL,
+        description TEXT NOT NULL,
+        created_at INTEGER DEFAULT (strftime('%s','now'))
+    );
+
     CREATE INDEX IF NOT EXISTS idx_files_expires_at ON files (expires_at);
     CREATE INDEX IF NOT EXISTS idx_files_owner ON files (owner_id);
     CREATE INDEX IF NOT EXISTS idx_files_token ON files (token);
+    CREATE INDEX IF NOT EXISTS idx_abuse_file ON abuse_reports (file_id);
 `;
 db.exec(createTablesQuery);
 
@@ -68,7 +78,7 @@ const triggerQuery = `
 `;
 db.exec(triggerQuery);
 
-console.log('Şema ve tetikleyiciler (users + files) hazır.');
+console.log('Şema ve tetikleyiciler (users + files + abuse_reports) hazır.');
 
 module.exports = db;
 
