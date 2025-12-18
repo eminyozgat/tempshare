@@ -92,29 +92,33 @@ const getFilePasswordHash = (fileId) => {
     return stmt.get(fileId);
 };
 
-// 6. Cleanup
+// Yardımcı: tek bir dosyayı (disk + DB) kalıcı sil
+const deleteFileById = (fileId) => {
+    const file = getFileMetadata(fileId);
+    if (!file) return;
+
+    const deleteStmt = db.prepare("DELETE FROM files WHERE id = ?");
+    try {
+        if (fs.existsSync(file.filepath)) {
+            fs.unlinkSync(file.filepath);
+            console.log(`🗑️ Diskten silindi: ${file.filename}`);
+        }
+    } catch (err) {
+        console.error(`Hata (Dosya Silme): ${file.filename}`, err.message);
+    }
+
+    deleteStmt.run(file.id);
+    console.log(`❌ Kayıt silindi: ${file.id}`);
+};
+
+// 6. Cleanup – süresi dolmuş dosyaları toplu temizle
 const cleanupExpiredFiles = () => {
     const now = Date.now();
     const expiredFiles = db.prepare("SELECT * FROM files WHERE expires_at < ?").all(now);
 
     if (expiredFiles.length > 0) {
         console.log(`🧹 Temizlik Başladı: ${expiredFiles.length} adet süresi dolmuş dosya bulundu.`);
-        
-        const deleteStmt = db.prepare("DELETE FROM files WHERE id = ?");
-
-        expiredFiles.forEach(file => {
-            try {
-                if (fs.existsSync(file.filepath)) {
-                    fs.unlinkSync(file.filepath);
-                    console.log(`🗑️ Diskten silindi: ${file.filename}`);
-                }
-            } catch (err) {
-                console.error(`Hata (Dosya Silme): ${file.filename}`, err.message);
-            }
-
-            deleteStmt.run(file.id);
-            console.log(`❌ Kayıt silindi: ${file.id}`);
-        });
+        expiredFiles.forEach(file => deleteFileById(file.id));
     }
 };
 
@@ -126,6 +130,7 @@ module.exports = {
     calculateExpiryDate,
     incrementDownloadCount,
     cleanupExpiredFiles,
-    getFilePasswordHash 
+    getFilePasswordHash,
+    deleteFileById
 };
 
