@@ -25,6 +25,8 @@ document.addEventListener("DOMContentLoaded", () => {
         expirySelect: document.getElementById("expiry-duration"),
         maxViews: document.getElementById("max-views"),
         burnCheck: document.getElementById("burn-check"),
+        requirePasswordCheck: document.getElementById("require-password-check"),
+        passwordWrapper: document.getElementById("password-wrapper"),
         qrImage: document.getElementById("qr-image"),
         shareLink: document.getElementById("share-link")
     };
@@ -47,6 +49,7 @@ document.addEventListener("DOMContentLoaded", () => {
     });
 
     // --- 2. GÜVENLİK ---
+    // Yak seçeneği: işaretlenirse maxViews = 1 ve kilitlenir
     formEls.burnCheck.addEventListener("change", (e) => {
         if(e.target.checked) {
             formEls.maxViews.value = 1;
@@ -55,6 +58,19 @@ document.addEventListener("DOMContentLoaded", () => {
             formEls.maxViews.disabled = false;
         }
     });
+
+    // Parola zorunlu seçeneği: işaretlenirse parola alanı açılır
+    if (formEls.requirePasswordCheck && formEls.passwordWrapper) {
+        formEls.requirePasswordCheck.addEventListener("change", (e) => {
+            if (e.target.checked) {
+                formEls.passwordWrapper.style.display = 'block';
+            } else {
+                formEls.passwordWrapper.style.display = 'none';
+                const pwInput = document.getElementById("password");
+                if (pwInput) pwInput.value = '';
+            }
+        });
+    }
 
     // --- 3. MODAL & AUTH ---
     const openModal = (mode = 'login') => {
@@ -86,35 +102,66 @@ document.addEventListener("DOMContentLoaded", () => {
 
     // --- GİRİŞ & KAYIT MANTIĞI (DÜZELTİLDİ) ---
 
+    let currentUser = null;
+
     // Kayıt Formu
-    authTabs.registerForm.addEventListener("submit", (e) => {
+    authTabs.registerForm.addEventListener("submit", async (e) => {
         e.preventDefault();
         const honeypot = document.getElementById("spam-trap").value;
         if (honeypot) return; 
 
         const pass = document.getElementById("reg-pass").value;
         const passConfirm = document.getElementById("reg-pass-confirm").value;
+        const name = document.getElementById("reg-name").value;
+        const email = document.getElementById("reg-email").value;
+
         if (pass.length < 6) { authTabs.errorMsg.textContent = "Şifre çok kısa."; return; }
         if (pass !== passConfirm) { authTabs.errorMsg.textContent = "Şifreler eşleşmiyor."; return; }
 
-        // DÜZELTME 1: Formdaki ismi alıp loginUser'a gönderiyoruz
-        const userName = document.getElementById("reg-name").value;
-        loginUser(userName);
-        closeModal();
+        try {
+            const res = await fetch('/api/auth/register', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ name, email, password: pass })
+            });
+            const data = await res.json();
+
+            if (res.ok) {
+                currentUser = data.user;
+                loginUser(currentUser.name);
+                closeModal();
+            } else {
+                authTabs.errorMsg.textContent = data.error || "Kayıt başarısız.";
+            }
+        } catch (err) {
+            authTabs.errorMsg.textContent = "Sunucu hatası.";
+        }
     });
 
     // Giriş Formu
-    authTabs.loginForm.addEventListener("submit", (e) => {
+    authTabs.loginForm.addEventListener("submit", async (e) => {
         e.preventDefault();
-        // DÜZELTME 2: E-posta adresinden isim türetiyoruz (Veritabanı olmadığı için)
-        // Örn: mehmet@gmail.com -> Mehmet
         const email = authTabs.loginForm.querySelector('input[type="email"]').value;
-        let derivedName = email.split('@')[0];
-        // İlk harfi büyüt
-        derivedName = derivedName.charAt(0).toUpperCase() + derivedName.slice(1);
+        const password = authTabs.loginForm.querySelector('input[type="password"]').value;
         
-        loginUser(derivedName);
-        closeModal();
+        try {
+            const res = await fetch('/api/auth/login', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ email, password })
+            });
+            const data = await res.json();
+
+            if (res.ok) {
+                currentUser = data.user;
+                loginUser(currentUser.name);
+                closeModal();
+            } else {
+                authTabs.errorMsg.textContent = data.error || "Giriş başarısız.";
+            }
+        } catch (err) {
+            authTabs.errorMsg.textContent = "Sunucu hatası.";
+        }
     });
 
     nav.logoutBtn.addEventListener("click", logoutUser);
@@ -130,6 +177,7 @@ document.addEventListener("DOMContentLoaded", () => {
     }
 
     function logoutUser() {
+        currentUser = null;
         nav.guest.style.display = "block";
         nav.user.style.display = "none";
         formEls.limitBadge.textContent = "Limit: 50MB";
@@ -173,8 +221,18 @@ document.addEventListener("DOMContentLoaded", () => {
         selectedFiles.forEach((file, index) => {
             const li = document.createElement("li");
             li.className = "ts-file-item";
-            // Kapatma butonu (X) artık daha büyük
-            li.innerHTML = `<span>${file.name}</span> <button type="button" class="ts-remove-btn" data-idx="${index}">×</button>`;
+
+            const nameSpan = document.createElement("span");
+            nameSpan.textContent = file.name; // XSS'e karşı güvenli
+
+            const removeBtn = document.createElement("button");
+            removeBtn.type = "button";
+            removeBtn.className = "ts-remove-btn";
+            removeBtn.dataset.idx = index;
+            removeBtn.textContent = "×";
+
+            li.appendChild(nameSpan);
+            li.appendChild(removeBtn);
             formEls.fileList.appendChild(li);
         });
         document.querySelectorAll(".ts-remove-btn").forEach(btn => {
@@ -186,33 +244,85 @@ document.addEventListener("DOMContentLoaded", () => {
     }
 
     // --- 5. SİMÜLASYON ---
-    document.getElementById("upload-form").addEventListener("submit", (e) => {
+    document.getElementById("upload-form").addEventListener("submit", async (e) => {
         e.preventDefault();
         if (!selectedFiles.length) {
             alert("Lütfen önce en az bir dosya ekleyin.");
             return;
         }
+        
+        const formData = new FormData();
+        selectedFiles.forEach(file => formData.append('file[]', file));
+        
+        const passwordInput = document.getElementById("password");
+        const passwordValue = passwordInput ? passwordInput.value : '';
+
+        // Eğer "Parola zorunlu" işaretliyse ama şifre boşsa, engelle
+        if (formEls.requirePasswordCheck && formEls.requirePasswordCheck.checked && !passwordValue.trim()) {
+            alert("Lütfen bir parola belirleyin.");
+            return;
+        }
+
+        formData.append('duration', formEls.expirySelect.value);
+        formData.append('maxViews', formEls.maxViews.value);
+        formData.append('password', passwordValue);
+        // E2EE kaldırıldı; backend'e her zaman false gönderiyoruz (opsiyon devre dışı)
+        formData.append('e2ee', false);
+        formData.append('burn', formEls.burnCheck.checked);
+        if (currentUser) {
+            formData.append('ownerId', currentUser.id);
+        }
+
         const progressFill = document.getElementById("progress-fill");
         document.getElementById("progress-container").style.display = "block";
-        
-        let width = 0;
-        const interval = setInterval(() => {
-            width += 5;
-            progressFill.style.width = width + "%";
-            if (width >= 100) {
-                clearInterval(interval);
+        document.getElementById("upload-btn").disabled = true;
+        document.getElementById("upload-btn").textContent = "Yükleniyor...";
+
+        try {
+            // Fake progress for UX
+            let width = 0;
+            const interval = setInterval(() => {
+                if (width < 90) width += 5;
+                progressFill.style.width = width + "%";
+            }, 100);
+
+            const res = await fetch('/api/upload', {
+                method: 'POST',
+                body: formData
+            });
+            const data = await res.json();
+
+            clearInterval(interval);
+            progressFill.style.width = "100%";
+
+            if (res.ok) {
                 setTimeout(() => {
                     sections.upload.style.display = 'none';
                     sections.result.style.display = 'block';
                     
-                    const uniqueID = Math.random().toString(36).substring(7);
-                    const finalLink = window.location.origin + "/d/" + uniqueID;
+                    // Use the first file's token for the link (assuming single link for batch or first file)
+                    // In a real app, you might want to handle multiple links or a zip
+                    const token = data.files[0].token;
+                    const finalLink = window.location.origin + "/download.html?token=" + token;
+                    
                     formEls.shareLink.value = finalLink;
                     formEls.qrImage.src = `https://api.qrserver.com/v1/create-qr-code/?size=150x150&data=${finalLink}`;
                     
+                    document.getElementById("upload-btn").disabled = false;
+                    document.getElementById("upload-btn").textContent = "Link Oluştur";
                 }, 500);
+            } else {
+                alert("Hata: " + (data.error || "Yükleme başarısız."));
+                document.getElementById("upload-btn").disabled = false;
+                document.getElementById("upload-btn").textContent = "Link Oluştur";
+                document.getElementById("progress-container").style.display = 'none';
             }
-        }, 50);
+        } catch (err) {
+            alert("Sunucu hatası.");
+            document.getElementById("upload-btn").disabled = false;
+            document.getElementById("upload-btn").textContent = "Link Oluştur";
+            document.getElementById("progress-container").style.display = 'none';
+        }
     });
 
     document.getElementById("new-upload-btn").addEventListener("click", () => {
