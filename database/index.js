@@ -117,7 +117,7 @@ app.post('/api/auth/register', async (req, res) => {
 
         const id = uuidv4();
         await userManager.createUser({ id, name, email, password });
-        
+
         // Auto login after register
         const user = userManager.getUserById(id);
         res.status(201).json({ message: 'Kayıt başarılı.', user: { id: user.id, name: user.name, email: user.email } });
@@ -200,7 +200,7 @@ app.post('/api/upload', (req, res) => {
             for (const file of files) {
                 const id = uuidv4();
                 const token = uuidv4(); // Simple token for URL
-                
+
                 // Calculate expiry
                 let addMs = 0;
                 switch (duration) {
@@ -234,7 +234,7 @@ app.post('/api/upload', (req, res) => {
                 };
 
                 fileManager.insertFile(fileData);
-                
+
                 uploadedFiles.push({
                     filename: file.originalname,
                     token: token,
@@ -249,3 +249,170 @@ app.post('/api/upload', (req, res) => {
         }
     });
 });
+
+// 4. Get File Metadata (for Download Page)
+app.get('/api/files/:token', (req, res) => {
+    try {
+        const { token } = req.params;
+        const file = fileManager.getFileByToken(token);
+
+        if (!file) {
+            return res.status(404).json({ error: 'Dosya bulunamadı.' });
+        }
+
+        // Check status (expiry, limit) - ama metadata'yı her zaman döndür
+        const statusCheck = fileManager.checkFileStatus(file.id);
+        // SQLite'dan gelen değerler string olabilir, sayıya çevir
+        const downloadCount = Number(file.download_count) || 0;
+        const downloadLimit = Number(file.download_limit) || 1;
+        const expiresAt = Number(file.expires_at) || 0;
+        const isExpired = Date.now() > expiresAt;
+        const isLimitReached = downloadCount >= downloadLimit;
+
+        // Yükleyen bilgisini hazırla: misafir ise "Misafir",
+        // kayıtlı kullanıcı ise doğrudan kullanıcı adı.
+        let ownerLabel = 'Misafir';
+        if (file.owner_id) {
+            try {
+                const owner = userManager.getUserById(file.owner_id);
+                if (owner && owner.name) {
+                    ownerLabel = owner.name;
+                } else {
+                    ownerLabel = 'Üye';
+                }
+            } catch (e) {
+                console.error('Owner fetch error:', e);
+                ownerLabel = 'Üye';
+            }
+        }
+
+        // Return safe metadata (limit dolmuş olsa bile döndür, frontend göstersin)
+        res.json({
+            filename: file.filename,
+            size: file.size_bytes,
+            owner: ownerLabel,
+            expiresAt: expiresAt,
+            isLocked: !!file.password_hash,
+            isBurn: !!file.burn_after_download,
+            downloadCount: downloadCount,
+            downloadLimit: downloadLimit,
+            isExpired: isExpired,
+            isLimitReached: isLimitReached,
+            statusMessage: !statusCheck.status ? statusCheck.message : null
+        });
+
+    } catch (error) {
+        console.error('Metadata Error:', error);
+        res.status(500).json({ error: 'Sunucu hatası.' });
+    }
+});
+
+// 5. Download File
+app.post('/api/files/:token/download', async (req, res) => {
+    try {
+        const { token } = req.params;
+        const { password } = req.body;
+
+        const file = fileManager.getFileByToken(token);
+        if (!file) {
+            return res.status(404).json({ error: 'Dosya bulunamadı.' });
+        }
+
+        const statusCheck = fileManager.checkFileStatus(file.id);
+        if (!statusCheck.status) {
+            return res.status(410).json({ error: statusCheck.message });
+        }
+
+        // Password Check
+        if (file.password_hash) {
+            if (!password) {
+                return res.status(403).json({ error: 'Bu dosya şifre korumalı.' });
+            }
+            const isValid = await bcrypt.compare(password, file.password_hash);
+            if (!isValid) {
+                return res.status(403).json({ error: 'Hatalı şifre.' });
+            }
+        }
+
+        // İndirme sayısını artır
+        fileManager.incrementDownloadCount(file.id);
+
+        // Burn-after-download veya limit dolumu kontrolü
+        const willExceedLimit = (file.download_count + 1) >= file.download_limit;
+        const shouldBurn = !!file.burn_after_download || willExceedLimit;
+
+        // Dosyayı gönder
+        res.download(file.filepath, file.filename, (err) => {
+            if (err) {
+                console.error('Download Error:', err);
+            }
+            // Burn-after-download veya limit dolunca dosyayı kalıcı sil
+            if (shouldBurn) {
+                try {
+                    fileManager.deleteFileById(file.id);
+                } catch (e) {
+                    console.error('Burn-after-download silme hatası:', e);
+                }
+            }
+        });
+
+    } catch (error) {
+        console.error('Download Action Error:', error);
+        res.status(500).json({ error: 'İndirme başlatılamadı.' });
+    }
+});
+
+// 6. Report Abuse
+app.post('/api/reports', (req, res) => {
+    try {
+        let { token, title, description } = req.body;
+
+        // Basit validation ve trim
+        token = (token || '').trim();
+        title = (title || '').trim();
+        description = (description || '').trim();
+
+        if (!token) {
+            return res.status(400).json({ error: 'Geçersiz veya eksik token.' });
+        }
+        if (!title || title.length > 200) {
+            return res.status(400).json({ error: 'Başlık 1-200 karakter arasında olmalıdır.' });
+        }
+        if (!description || description.length > 2000) {
+            return res.status(400).json({ error: 'Açıklama 1-2000 karakter arasında olmalıdır.' });
+        }
+
+        const file = fileManager.getFileByToken(token);
+
+        if (!file) {
+            return res.status(404).json({ error: 'Dosya bulunamadı.' });
+        }
+
+        reportManager.insertReport({
+            file_id: file.id,
+            reporter_email: null, // Optional
+            title,
+            description
+        });
+
+        res.json({ message: 'Rapor iletildi.' });
+
+    } catch (error) {
+        console.error('Report Error:', error);
+        res.status(500).json({ error: 'Raporlama hatası.' });
+    }
+});
+
+// Start Server
+app.listen(PORT, () => {
+    console.log(`Server running at http://localhost:${PORT}`);
+});
+
+// Süresi dolmuş dosyalar için periyodik temizlik (saatte bir)
+setInterval(() => {
+    try {
+        fileManager.cleanupExpiredFiles();
+    } catch (e) {
+        console.error('Cleanup job hatası:', e);
+    }
+}, 60 * 60 * 1000);

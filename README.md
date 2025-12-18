@@ -18,3 +18,48 @@ To keep the service resilient, we emphasize self-healing: health checks (`/healt
 - Database: SQLite (single-file, zero-config)
 - Security: HMAC-signed links, bcrypt for passwords, security headers (CSP, Referrer-Policy, NoSniff)
 - Operations: Docker or PM2 for auto-restart; `/healthz` and `/readyz` for health checks
+
+## Kurulum ve Çalıştırma
+
+### Gereksinimler
+- Node.js v18 veya üzeri (önerilen: v20+)
+- npm (Node.js ile birlikte gelir)
+
+### Adımlar
+
+1. **Projeyi indirin ve açın**
+   ```bash
+   cd database
+   ```
+
+2. **Bağımlılıkları yükleyin**
+   ```bash
+   npm install
+   ```
+   
+   **ÖNEMLİ:** Eğer `better-sqlite3` modülü ile ilgili hata alırsanız:
+   ```bash
+   # Windows PowerShell
+   rmdir /s /q node_modules
+   del package-lock.json
+   npm install
+   ```
+
+3. **Sunucuyu başlatın**
+   ```bash
+   node index.js
+   ```
+
+4. **Tarayıcıda açın**
+   - Ana sayfa: `http://localhost:3000`
+   - İndirme sayfası: `http://localhost:3000/download.html?token=...`
+
+### Sorun Giderme
+
+**"NODE_MODULE_VERSION" hatası alıyorsanız:**
+- Bu hata, `node_modules` klasörünün farklı bir Node.js sürümü ile derlenmiş olmasından kaynaklanır.
+- **Çözüm:** `node_modules` klasörünü silip `npm install` çalıştırın (yukarıdaki adımlar).
+- **Önleme:** Projeyi zip'lerken `node_modules` klasörünü dahil etmeyin. `.gitignore` dosyası zaten bunu engeller.
+
+**Port 3000 zaten kullanılıyorsa:**
+- `index.js` dosyasındaki `PORT` değişkenini değiştirin veya başka bir port kullanan servisi durdurun.
