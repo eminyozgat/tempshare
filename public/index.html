@@ -37,7 +37,7 @@
       
       <ul class="ts-feature-list">
           <li>🚀 Hızlı Paylaşım</li>
-          <li>🔒 Uçtan Uca Şifreleme</li>
+          <li>🔒 Parola Korumalı Link</li>
           <li>🔥 Okunduktan Sonra Yak</li>
       </ul>
     </section>
@@ -74,18 +74,21 @@
 
         <div class="ts-form-group">
           <label>Güvenlik Ayarları</label>
-          <input type="password" id="password" placeholder="Parola (Opsiyonel)" style="margin-bottom: 10px;" />
           
           <div class="ts-security-options">
               <div class="ts-security-badge">
-                 <input type="checkbox" id="e2ee-check">
-                 <label for="e2ee-check">
-                    <span class="ts-shield-icon">🛡️</span>
-                    <span><strong>E2EE:</strong> Sunucu içeriği göremez.</span>
+                 <input type="checkbox" id="require-password-check">
+                 <label for="require-password-check">
+                    <span class="ts-shield-icon">🔒</span>
+                    <span><strong>Linki şifrele:</strong> Şifre girilmeden link indirilebilir olmasın.</span>
                  </label>
               </div>
 
-              <div class="ts-security-badge">
+              <div id="password-wrapper" style="display:none; margin-top: 6px;">
+                 <input type="password" id="password" placeholder="Parola belirle" />
+              </div>
+
+              <div class="ts-security-badge" style="margin-top: 8px;">
                  <input type="checkbox" id="burn-check">
                  <label for="burn-check">
                     <span class="ts-shield-icon">🔥</span>
