@@ -9,21 +9,22 @@ const helmet = require('helmet');
 const rateLimit = require('express-rate-limit');
 const crypto = require('crypto');
 
-// Managers
+// Veritabanı yöneticileri
 const userManager = require('./src/database/userManager');
 const fileManager = require('./src/database/fileManager');
 const reportManager = require('./src/database/reportManager');
 
 const app = express();
 
+// Railway gibi proxy arkasında çalışırken gerçek IP'yi almak için
 app.set('trust proxy', 1);
 
 const PORT = process.env.PORT || 3000;
 
-// HMAC Secret Key (production'da environment variable'dan alınmalı)
+// HMAC şifreleme için gizli anahtar (production'da environment variable kullanılmalı)
 const HMAC_SECRET = process.env.HMAC_SECRET || 'temp-share-secret-key-change-in-production';
 
-// HMAC-signed token oluştur
+// Token oluştur (HMAC ile imzalanmış)
 const createSignedToken = (fileId, expiresAt) => {
     const payload = `${fileId}:${expiresAt}`;
     const signature = crypto.createHmac('sha256', HMAC_SECRET)
@@ -33,7 +34,7 @@ const createSignedToken = (fileId, expiresAt) => {
     return `${token}.${signature}`;
 };
 
-// HMAC-signed token doğrula
+// Token doğrula (HMAC imzasını kontrol et)
 const verifySignedToken = (signedToken) => {
     try {
         const [token, signature] = signedToken.split('.');
@@ -54,43 +55,42 @@ const verifySignedToken = (signedToken) => {
     }
 };
 
+// --- GİRDİ DOĞRULAMA FONKSİYONLARI ---
 
-// --- INPUT VALIDATION HELPERS ---
-
-// Email format validation
+// E-posta formatı kontrolü
 const isValidEmail = (email) => {
     const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
     return emailRegex.test(email) && email.length <= 255;
 };
 
-// String sanitization (XSS koruması - HTML escape)
+// String temizleme (XSS saldırılarına karşı koruma)
 const sanitizeString = (str, maxLength = 1000) => {
     if (typeof str !== 'string') return '';
     return str
         .trim()
         .substring(0, maxLength)
-        .replace(/[<>]/g, ''); // Basit XSS koruması
+        .replace(/[<>]/g, ''); // HTML karakterlerini temizle
 };
 
-// Name validation (alfanumerik + boşluk + Türkçe karakterler)
+// İsim doğrulama (harf, rakam, boşluk ve Türkçe karakterler)
 const isValidName = (name) => {
     if (!name || typeof name !== 'string') return false;
     const trimmed = name.trim();
     if (trimmed.length < 2 || trimmed.length > 100) return false;
-    // Alfanumerik, boşluk, Türkçe karakterler ve bazı özel karakterler
+    // Sadece harf, rakam, boşluk ve bazı özel karakterlere izin ver
     const nameRegex = /^[a-zA-ZğüşıöçĞÜŞİÖÇ\s\-'\.]+$/;
     return nameRegex.test(trimmed);
 };
 
-// Password validation
+// Şifre doğrulama
 const isValidPassword = (password) => {
     if (!password || typeof password !== 'string') return false;
     return password.length >= 6 && password.length <= 128;
 };
 
-// Middleware
+// Middleware ayarları
 
-// CORS: prod'da tek origin'e sabitlemek için ALLOWED_ORIGIN kullan
+// CORS: production'da sadece belirli bir origin'e izin ver
 const allowedOrigin = process.env.ALLOWED_ORIGIN;
 if (allowedOrigin) {
     app.use(cors({ origin: allowedOrigin }));
@@ -98,14 +98,14 @@ if (allowedOrigin) {
     app.use(cors());
 }
 
-// Security headers
+// Güvenlik başlıkları
 app.use(helmet({
     contentSecurityPolicy: {
         directives: {
             defaultSrc: ["'self'"],
-            styleSrc: ["'self'", "'unsafe-inline'"], // CSS için inline gerekli
-            scriptSrc: ["'self'", "'unsafe-inline'"], // JS için inline gerekli
-            imgSrc: ["'self'", "data:", "https://api.qrserver.com"], // QR kod için
+            styleSrc: ["'self'", "'unsafe-inline'"], // CSS için inline kod gerekli
+            scriptSrc: ["'self'", "'unsafe-inline'"], // JavaScript için inline kod gerekli
+            imgSrc: ["'self'", "data:", "https://api.qrserver.com"], // QR kod servisi için
             connectSrc: ["'self'"]
         }
     },
@@ -116,17 +116,17 @@ app.use(helmet({
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
-// Rate limiting
+// Rate limiting - kötüye kullanımı önlemek için
 const authLimiter = rateLimit({
-    windowMs: 15 * 60 * 1000, // 15 dakika
-    max: 20,
+    windowMs: 15 * 60 * 1000, // 15 dakika içinde
+    max: 20, // maksimum 20 istek
     standardHeaders: true,
     legacyHeaders: false
 });
 
 const downloadLimiter = rateLimit({
-    windowMs: 60 * 60 * 1000, // 1 saat
-    max: 100,
+    windowMs: 60 * 60 * 1000, // 1 saat içinde
+    max: 100, // maksimum 100 istek
     standardHeaders: true,
     legacyHeaders: false
 });
@@ -134,73 +134,72 @@ const downloadLimiter = rateLimit({
 app.use('/api/auth/', authLimiter);
 app.use('/api/files/', downloadLimiter);
 
-// Static Files (Frontend)
-// Dockerfile'da public/ klasörü /app/public/ olarak kopyalanıyor
-// Local'de ../public, Railway'de ./public (Dockerfile'da zaten ./public/ olarak kopyalanıyor)
-// Railway'de __dirname = /app, bu yüzden ./public kullanmalıyız
+// Frontend dosyaları (HTML, CSS, JS)
+// Railway'de ve local'de farklı yollar kullanılıyor, otomatik tespit ediliyor
 const publicDir = fs.existsSync(path.join(__dirname, './public')) 
     ? path.join(__dirname, './public') 
     : path.join(__dirname, '../public');
 app.use(express.static(publicDir));
 
-// Uploads Directory - Railway'de tek volume: /app/storage (içinde uploads/ klasörü)
-// Local'de: ../uploads
-// Railway'de STORAGE_BASE=/app/storage olarak ayarlanmalı
+// Yüklenen dosyaların saklanacağı klasör
+// Railway'de tek volume kullanıyoruz: /app/storage
+// Local'de proje klasörü içinde uploads/ klasörü
 const storageBase = process.env.STORAGE_BASE || path.join(__dirname, '../');
 const uploadDir = path.join(storageBase, 'uploads');
 if (!fs.existsSync(uploadDir)) {
     fs.mkdirSync(uploadDir, { recursive: true });
 }
 
-// Multer Configuration
+// Multer yapılandırması (dosya yükleme için)
 const storage = multer.diskStorage({
     destination: (req, file, cb) => {
         cb(null, uploadDir);
     },
     filename: (req, file, cb) => {
+        // Her dosyaya benzersiz bir isim ver (çakışmaları önlemek için)
         const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1E9);
         cb(null, uniqueSuffix + '-' + file.originalname);
     }
 });
 
-// Her dosya için üst sınır: 100MB (üyeler için maksimum)
-// Dosya türü kontrolü kaldırıldı - tüm dosya türleri kabul edilir
+// Dosya yükleme ayarları
+// Maksimum dosya boyutu: 100MB
+// Tüm dosya türleri kabul edilir (sadece boyut kontrolü var)
 const upload = multer({
     storage: storage,
     limits: {
         fileSize: 100 * 1024 * 1024 // 100MB
     }
-    // fileFilter kaldırıldı - tüm dosya türleri kabul edilir
 });
 
-// --- API ROUTES ---
+// --- API ROUTE'LARI ---
 
-// 1. Auth: Register
+// 1. Kullanıcı Kaydı
 app.post('/api/auth/register', async (req, res) => {
     try {
         let { name, email, password } = req.body;
         
-        // Input validation
+        // Girdi kontrolü
         if (!name || !email || !password) {
             return res.status(400).json({ error: 'Tüm alanlar zorunludur.' });
         }
         
-        // Sanitize inputs
+        // Girdileri temizle
         name = sanitizeString(name, 100);
         email = email.trim().toLowerCase();
         password = password.trim();
         
-        // Validate name
+        // İsim kontrolü
         if (!isValidName(name)) {
             return res.status(400).json({ error: 'Geçersiz isim. İsim 2-100 karakter arasında olmalı ve sadece harf, boşluk ve bazı özel karakterler içermelidir.' });
         }
         
-        // Validate email
+        // E-posta kontrolü
         if (!isValidEmail(email)) {
             return res.status(400).json({ error: 'Geçersiz e-posta adresi.' });
         }
         
-        // Validate password
+        // Şifre kontrolü
         if (!isValidPassword(password)) {
             return res.status(400).json({ error: 'Şifre 6-128 karakter arasında olmalıdır.' });
         }
@@ -213,7 +212,7 @@ app.post('/api/auth/register', async (req, res) => {
         const id = uuidv4();
         await userManager.createUser({ id, name, email, password });
         
-        // Auto login after register
+        // Kayıt sonrası otomatik giriş
         const user = userManager.getUserById(id);
         console.log(`[REGISTER] Yeni üye kaydı: ${email}`);
         res.status(201).json({ message: 'Kayıt başarılı.', user: { id: user.id, name: user.name, email: user.email } });
@@ -222,26 +221,26 @@ app.post('/api/auth/register', async (req, res) => {
     }
 });
 
-// 2. Auth: Login
+// 2. Kullanıcı Girişi
 app.post('/api/auth/login', async (req, res) => {
     try {
         let { email, password } = req.body;
         
-        // Input validation
+        // Girdi kontrolü
         if (!email || !password) {
             return res.status(400).json({ error: 'E-posta ve şifre zorunludur.' });
         }
         
-        // Sanitize inputs
+        // Girdileri temizle
         email = email.trim().toLowerCase();
         password = password.trim();
         
-        // Validate email format
+        // E-posta formatı kontrolü
         if (!isValidEmail(email)) {
             return res.status(400).json({ error: 'Geçersiz e-posta adresi.' });
         }
         
-        // Validate password
+        // Şifre kontrolü
         if (!isValidPassword(password)) {
             return res.status(400).json({ error: 'Geçersiz şifre.' });
         }
@@ -265,12 +264,12 @@ app.post('/api/auth/login', async (req, res) => {
     }
 });
 
-// 3. File Upload (multer özel hata yönetimi ile)
+// 3. Dosya Yükleme
 const uploadMiddleware = upload.array('file[]');
 
 app.post('/api/upload', (req, res) => {
     uploadMiddleware(req, res, async (err) => {
-        // Multer kaynaklı hatalar
+        // Dosya yükleme hatalarını kontrol et
         if (err) {
             if (err instanceof multer.MulterError) {
                 if (err.code === 'LIMIT_FILE_SIZE') {
@@ -278,11 +277,10 @@ app.post('/api/upload', (req, res) => {
                 }
                 return res.status(400).json({ error: 'Dosya yükleme hatası (Multer).' });
             }
-            // Dosya türü kontrolü kaldırıldı 
             return res.status(500).json({ error: 'Dosya yükleme sırasında beklenmeyen bir hata oluştu.' });
         }
 
-        // Normal iş akışı
+        // Normal işlem akışı
         try {
             const files = req.files;
             const { duration, maxViews, password, e2ee, burn, ownerId } = req.body;
@@ -291,18 +289,18 @@ app.post('/api/upload', (req, res) => {
                 return res.status(400).json({ error: 'Dosya yüklenmedi.' });
             }
 
-            // Input validation
+            // Girdi doğrulama ve temizleme
             const validDurations = ['1h', '3h', '24h', '7d'];
             const sanitizedDuration = validDurations.includes(duration) ? duration : '1h';
             const sanitizedMaxViews = Math.max(1, Math.min(1000, parseInt(maxViews) || 1));
             const sanitizedPassword = password ? sanitizeString(password, 128) : '';
             
-            // Üye kontrolü - 7 gün sadece üyeler için
+            // 7 günlük süre sadece üyeler için
             if (sanitizedDuration === '7d' && !ownerId) {
                 return res.status(403).json({ error: '7 günlük süre sadece üyeler için geçerlidir.' });
             }
             
-            // Toplam boyut limiti: misafir 50MB, üye 100MB
+            // Toplam dosya boyutu kontrolü: misafir 50MB, üye 100MB
             const totalSize = files.reduce((sum, f) => sum + f.size, 0);
             const isMember = !!ownerId;
             const maxTotalBytes = (isMember ? 100 : 50) * 1024 * 1024;
@@ -318,7 +316,7 @@ app.post('/api/upload', (req, res) => {
                 return res.status(400).json({ error: 'Toplam dosya boyutu limiti aşıldı.' });
             }
 
-            // Veritabanı boyut kontrolü (SQLite için)
+            // Veritabanı boyut kontrolü
             try {
                 const db = require('./src/database/db');
                 const dbPath = db.getDbPath ? db.getDbPath() : path.join(storageBase, 'data', 'temp_share.db');
@@ -326,13 +324,13 @@ app.post('/api/upload', (req, res) => {
                     const dbStats = fs.statSync(dbPath);
                     const dbSizeMB = dbStats.size / (1024 * 1024);
                     
-                    // SQLite veritabanı 500MB'ı geçerse uyarı ver (Railway free tier için)
+                    // Veritabanı 500MB'ı geçerse yeni yükleme yapılamaz
                     if (dbSizeMB > 500) {
                         return res.status(507).json({ error: 'Veritabanı kapasitesi dolmuş. Lütfen daha sonra tekrar deneyin.' });
                     }
                 }
             } catch (dbCheckError) {
-                // Veritabanı kontrolü başarısız olursa devam et
+                // Hata olsa bile devam et
             }
 
             const uploadedFiles = [];
@@ -340,7 +338,7 @@ app.post('/api/upload', (req, res) => {
             for (const file of files) {
                 const id = uuidv4();
                 
-                // Calculate expiry
+                // Dosya süresini hesapla
                 let addMs = 0;
                 switch (sanitizedDuration) {
                     case '1h': addMs = 1 * 60 * 60 * 1000; break;
@@ -351,10 +349,10 @@ app.post('/api/upload', (req, res) => {
                 }
                 const expiresAt = Date.now() + addMs;
                 
-                // HMAC-signed token oluştur
+                // Güvenli token oluştur
                 const token = createSignedToken(id, expiresAt);
 
-                // Hash password if provided
+                // Şifre varsa hash'le
                 let password_hash = null;
                 if (sanitizedPassword && sanitizedPassword.trim() !== '') {
                     if (!isValidPassword(sanitizedPassword)) {
@@ -363,9 +361,9 @@ app.post('/api/upload', (req, res) => {
                     password_hash = await bcrypt.hash(sanitizedPassword, 10);
                 }
 
-                // Dosya adı sanitization (XSS ve path traversal koruması)
+                // Dosya adını temizle (güvenlik için)
                 const sanitizedFilename = sanitizeString(file.originalname || 'unnamed', 255)
-                    .replace(/[\/\\\?\*\|<>:"]/g, '_') // Tehlikeli karakterleri temizle
+                    .replace(/[\/\\\?\*\|<>:"]/g, '_') // Tehlikeli karakterleri değiştir
                     .replace(/^\.+/, ''); // Başta nokta olmasın
                 
                 const fileData = {
@@ -385,16 +383,16 @@ app.post('/api/upload', (req, res) => {
 
                 fileManager.insertFile(fileData);
                 
-                // Log: Dosya yükleme bilgisi
+                // Log kaydı
                 const ownerInfo = ownerId ? `üye: ${userManager.getUserById(ownerId)?.email || 'bilinmeyen'}` : 'misafir';
                 const passwordInfo = password_hash ? 'şifreli' : 'şifresiz';
                 const sizeMB = (file.size / (1024 * 1024)).toFixed(2);
                 console.log(`[UPLOAD] Dosya yüklendi: ${file.originalname} (${sizeMB}MB), ${ownerInfo}, ${passwordInfo}, süre: ${sanitizedDuration}, limit: ${sanitizedMaxViews}`);
                 
-                // HMAC-signed token'ı kullanıcıya döndür (veritabanında da saklanır)
+                // Kullanıcıya token döndür
                 uploadedFiles.push({
                     filename: file.originalname,
-                    token: token, // HMAC-signed token
+                    token: token,
                     expiresAt: expiresAt
                 });
             }
@@ -406,25 +404,25 @@ app.post('/api/upload', (req, res) => {
     });
 });
 
-// 4. Get File Metadata (for Download Page)
+// 4. Dosya Bilgilerini Getir (İndirme Sayfası İçin)
 app.get('/api/files/:token', (req, res) => {
     try {
         const { token } = req.params;
         
-        // HMAC token doğrulama
+        // Token doğrulama
         const verified = verifySignedToken(token);
         if (!verified) {
             return res.status(403).json({ error: 'Geçersiz veya sahte token.' });
         }
         
-        // Token'dan file ID'yi al
+        // Token'dan dosya ID'sini al
         const file = fileManager.getFileMetadata(verified.fileId);
 
         if (!file) {
             return res.status(404).json({ error: 'Dosya bulunamadı.' });
         }
 
-        // Check status (expiry, limit) - ama metadata'yı her zaman döndür
+        // Dosya durumunu kontrol et (süre, limit)
         const statusCheck = fileManager.checkFileStatus(file.id);
         // SQLite'dan gelen değerler string olabilir, sayıya çevir
         const downloadCount = Number(file.download_count) || 0;
@@ -433,8 +431,7 @@ app.get('/api/files/:token', (req, res) => {
         const isExpired = Date.now() > expiresAt;
         const isLimitReached = downloadCount >= downloadLimit;
 
-        // Yükleyen bilgisini hazırla: misafir ise "Misafir",
-        // kayıtlı kullanıcı ise doğrudan kullanıcı adı.
+        // Yükleyen bilgisini hazırla
         let ownerLabel = 'Misafir';
         if (file.owner_id) {
             try {
@@ -449,7 +446,7 @@ app.get('/api/files/:token', (req, res) => {
             }
         }
 
-        // Return safe metadata (limit dolmuş olsa bile döndür, frontend göstersin)
+        // Dosya bilgilerini döndür (limit dolmuş olsa bile frontend'e göster)
         res.json({
             filename: file.filename,
             size: file.size_bytes,
@@ -469,30 +466,31 @@ app.get('/api/files/:token', (req, res) => {
     }
 });
 
-// 5. Download File
+// 5. Dosya İndirme
 app.post('/api/files/:token/download', async (req, res) => {
     try {
         const { token } = req.params;
         const { password } = req.body;
 
-        // HMAC token doğrulama
+        // Token doğrulama
         const verified = verifySignedToken(token);
         if (!verified) {
             return res.status(403).json({ error: 'Geçersiz veya sahte token.' });
         }
         
-        // Token'dan file ID'yi al
+        // Token'dan dosya ID'sini al
         const file = fileManager.getFileMetadata(verified.fileId);
         if (!file) {
             return res.status(404).json({ error: 'Dosya bulunamadı.' });
         }
 
+        // Dosya durumunu kontrol et
         const statusCheck = fileManager.checkFileStatus(file.id);
         if (!statusCheck.status) {
             return res.status(410).json({ error: statusCheck.message });
         }
 
-        // Password Check
+        // Şifre kontrolü
         if (file.password_hash) {
             if (!password) {
                 return res.status(403).json({ error: 'Bu dosya şifre korumalı.' });
@@ -506,28 +504,28 @@ app.post('/api/files/:token/download', async (req, res) => {
         // İndirme sayısını artır
         fileManager.incrementDownloadCount(file.id);
         
-        // Log: İndirme bilgisi
+        // Log kaydı
         const tokenPreview = token.substring(0, 8) + '...';
         const passwordInfo = file.password_hash ? 'şifreli' : 'şifresiz';
         const downloadCount = Number(file.download_count) + 1;
         const downloadLimit = Number(file.download_limit);
         console.log(`[DOWNLOAD] Dosya indirildi: ${file.filename}, token: ${tokenPreview}, ${passwordInfo}, indirme: ${downloadCount}/${downloadLimit}`);
 
-        // Burn-after-download veya limit dolumu kontrolü
+        // İndirme sonrası silme kontrolü
         const willExceedLimit = (file.download_count + 1) >= file.download_limit;
         const shouldBurn = !!file.burn_after_download || willExceedLimit;
 
-        // Dosyayı gönder
+        // Dosyayı kullanıcıya gönder
         res.download(file.filepath, file.filename, (err) => {
             if (err) {
-                // Download error - sessizce devam et
+                // Hata olsa bile devam et
             }
-            // Burn-after-download veya limit dolunca dosyayı kalıcı sil
+            // İndirme sonrası silme veya limit dolunca dosyayı sil
             if (shouldBurn) {
                 try {
                     fileManager.deleteFileById(file.id);
                 } catch (e) {
-                    // Silme hatası - sessizce devam et
+                    // Silme hatası - devam et
                 }
             }
         });
@@ -537,12 +535,12 @@ app.post('/api/files/:token/download', async (req, res) => {
     }
 });
 
-// 6. Report Abuse
+// 6. Kötüye Kullanım Raporu
 app.post('/api/reports', (req, res) => {
     try {
         let { token, title, description } = req.body;
 
-        // Input validation ve sanitization
+        // Girdi kontrolü ve temizleme
         token = (token || '').trim();
         title = sanitizeString(title || '', 200);
         description = sanitizeString(description || '', 2000);
@@ -557,7 +555,7 @@ app.post('/api/reports', (req, res) => {
             return res.status(400).json({ error: 'Açıklama 1-2000 karakter arasında olmalıdır.' });
         }
 
-        // HMAC token doğrulama (rapor için)
+        // Token doğrulama (dosya varsa bağlantı kur)
         let file_id = null;
         const verified = verifySignedToken(token);
         if (verified) {
@@ -567,17 +565,17 @@ app.post('/api/reports', (req, res) => {
             }
         }
         
-        // Dosya bulunamazsa bile rapor kaydedilebilir (dosya silinmiş olabilir)
+        // Dosya silinmiş olsa bile rapor kaydedilebilir
 
-        // Rapor kaydet
+        // Raporu kaydet
         const reportId = reportManager.insertReport({
             file_id: file_id,
-            reporter_email: null, // Optional
+            reporter_email: null,
             title,
             description
         });
         
-        // Log: Geri bildirim bilgisi
+        // Log kaydı
         const fileInfo = file_id ? `dosya_id: ${file_id.substring(0, 8)}...` : 'dosya bulunamadı';
         console.log(`[REPORT] Geri bildirim alındı: "${title}", ${fileInfo}`);
 
@@ -588,20 +586,20 @@ app.post('/api/reports', (req, res) => {
     }
 });
 
-// --- SELF-HEALING: Health Check Endpoints ---
+// --- SELF-HEALING: Sağlık Kontrolü ---
 
-// Health check: Sunucu çalışıyor mu?
+// Sunucu çalışıyor mu?
 app.get('/healthz', (req, res) => {
     res.status(200).json({ status: 'ok', timestamp: new Date().toISOString() });
 });
 
-// Readiness check: Veritabanı bağlantısı ve servisler hazır mı?
+// Sistem hazır mı? (veritabanı, dosya klasörü vb.)
 app.get('/readyz', (req, res) => {
     try {
-        // Veritabanı bağlantısını test et (fileManager üzerinden)
-        fileManager.getFileMetadata('test'); // Bu null döner ama DB bağlantısını test eder
+        // Veritabanı bağlantısını test et
+        fileManager.getFileMetadata('test');
         
-        // Upload klasörü erişilebilir mi?
+        // Yükleme klasörü erişilebilir mi?
         if (!fs.existsSync(uploadDir)) {
             return res.status(503).json({ status: 'not ready', reason: 'Upload directory not accessible' });
         }
@@ -623,13 +621,13 @@ app.get('/readyz', (req, res) => {
     }
 });
 
-// --- SERVER STARTUP ---
+// --- SUNUCU BAŞLATMA ---
 
 const server = app.listen(PORT, () => {
-    // Server started
+    // Sunucu başlatıldı
 });
 
-// --- SELF-HEALING: Graceful Shutdown ---
+// --- SELF-HEALING: Düzgün Kapatma ---
 let isShuttingDown = false;
 
 const gracefulShutdown = (signal) => {
@@ -642,13 +640,13 @@ const gracefulShutdown = (signal) => {
             const db = require('./src/database/db');
             db.close();
         } catch (e) {
-            // Database close error - sessizce devam et
+            // Hata olsa bile devam et
         }
         
         process.exit(0);
     });
     
-    // Force shutdown after 10 seconds
+    // 10 saniye sonra zorla kapat
     setTimeout(() => {
         process.exit(1);
     }, 10000);
@@ -657,13 +655,13 @@ const gracefulShutdown = (signal) => {
 process.on('SIGTERM', () => gracefulShutdown('SIGTERM'));
 process.on('SIGINT', () => gracefulShutdown('SIGINT'));
 
-// --- SELF-HEALING: Automatic Cleanup ---
-// Süresi dolmuş dosyalar için periyodik temizlik (saatte bir)
+// --- SELF-HEALING: Otomatik Temizlik ---
+// Süresi dolmuş dosyaları otomatik temizle (her saat)
 setInterval(() => {
     try {
         fileManager.cleanupExpiredFiles();
     } catch (e) {
-        // Cleanup error - sessizce devam et
+        // Hata olsa bile devam et
     }
 }, 60 * 60 * 1000);
 

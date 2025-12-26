@@ -2,23 +2,23 @@ const Database = require('better-sqlite3');
 const path = require('path');
 const fs = require('fs');
 
-// Railway'de tek volume: /app/storage (içinde data/ ve uploads/ klasörleri)
-// Local'de: ../../data
+// Veritabanı dosyasının yolu
+// Railway'de tek volume kullanıyoruz: /app/storage
+// Local'de proje klasörü içinde data/ klasörü
 const storageBase = process.env.STORAGE_BASE || path.join(__dirname, '../../');
 const dbDir = path.join(storageBase, 'data');
 const dbPath = path.join(dbDir, 'temp_share.db');
 
+// Klasör yoksa oluştur
 if (!fs.existsSync(dbDir)) {
     fs.mkdirSync(dbDir, { recursive: true });
 }
 
 const db = new Database(dbPath);
-db.pragma('journal_mode = WAL');
-db.pragma('foreign_keys = ON');
+db.pragma('journal_mode = WAL'); // Write-Ahead Logging modu
+db.pragma('foreign_keys = ON'); // Foreign key kontrolünü aç
 
-// Veritabanı bağlantısı başarılı
-
-// USERS + FILES + ABUSE_REPORTS şeması (final)
+// Veritabanı tablolarını oluştur
 const createTablesQuery = `
     CREATE TABLE IF NOT EXISTS users (
         id TEXT PRIMARY KEY,
@@ -64,7 +64,7 @@ const createTablesQuery = `
 `;
 db.exec(createTablesQuery);
 
-// Tetikleyiciler: users + files
+// Otomatik güncelleme tetikleyicileri
 const triggerQuery = `
     CREATE TRIGGER IF NOT EXISTS trg_users_updated
     AFTER UPDATE ON users
@@ -82,8 +82,8 @@ const triggerQuery = `
 `;
 db.exec(triggerQuery);
 
-// Şema ve tetikleyiciler hazır
+// Veritabanı hazır
 
 module.exports = db;
-module.exports.getDbPath = () => dbPath; // Dışarıdan erişim için
+module.exports.getDbPath = () => dbPath; // Veritabanı dosya yolunu döndür
 
