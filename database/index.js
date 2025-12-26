@@ -131,10 +131,17 @@ app.use('/api/auth/', authLimiter);
 app.use('/api/files/', downloadLimiter);
 
 // Static Files (Frontend)
-app.use(express.static(path.join(__dirname, '../public')));
+// Dockerfile'da public/ klasörü /app/public/ olarak kopyalanıyor
+// Local'de ../public, Railway'de ./public (Dockerfile'da zaten ./public/ olarak kopyalanıyor)
+// Railway'de __dirname = /app, bu yüzden ./public kullanmalıyız
+const publicDir = fs.existsSync(path.join(__dirname, './public')) 
+    ? path.join(__dirname, './public') 
+    : path.join(__dirname, '../public');
+app.use(express.static(publicDir));
 
 // Uploads Directory - Railway'de tek volume: /app/storage (içinde uploads/ klasörü)
 // Local'de: ../uploads
+// Railway'de STORAGE_BASE=/app/storage olarak ayarlanmalı
 const storageBase = process.env.STORAGE_BASE || path.join(__dirname, '../');
 const uploadDir = path.join(storageBase, 'uploads');
 if (!fs.existsSync(uploadDir)) {
