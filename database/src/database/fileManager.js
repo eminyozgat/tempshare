@@ -100,12 +100,23 @@ const deleteFileById = (fileId) => {
     try {
         if (fs.existsSync(file.filepath)) {
             fs.unlinkSync(file.filepath);
+<<<<<<< HEAD
         }
     } catch (err) {
         // Dosya silme hatası - sessizce devam et
     }
 
     deleteStmt.run(file.id);
+=======
+            console.log(`🗑️ Diskten silindi: ${file.filename}`);
+        }
+    } catch (err) {
+        console.error(`Hata (Dosya Silme): ${file.filename}`, err.message);
+    }
+
+    deleteStmt.run(file.id);
+    console.log(`❌ Kayıt silindi: ${file.id}`);
+>>>>>>> fdcaf2147072bdca40fc1365a6259795548e763f
 };
 
 // 6. Cleanup – süresi dolmuş dosyaları toplu temizle
@@ -114,6 +125,10 @@ const cleanupExpiredFiles = () => {
     const expiredFiles = db.prepare("SELECT * FROM files WHERE expires_at < ?").all(now);
 
     if (expiredFiles.length > 0) {
+<<<<<<< HEAD
+=======
+        console.log(`🧹 Temizlik Başladı: ${expiredFiles.length} adet süresi dolmuş dosya bulundu.`);
+>>>>>>> fdcaf2147072bdca40fc1365a6259795548e763f
         expiredFiles.forEach(file => deleteFileById(file.id));
     }
 };

@@ -12,12 +12,21 @@ Servisin güvenilir kalması için self-healing özellikler ekledik: health chec
 - Sade arayüz: yükleme sayfası + tek dosya sayfası net durum mesajlarıyla
 - Kötüye kullanım önleme: rate limiting ve temel audit log'ları (hassas veri log'lanmaz)
 
+<<<<<<< HEAD
 ## Teknolojiler
 - **Frontend:** HTML/CSS ve minimal JavaScript
 - **Backend:** Node.js + Express (yükleme, imzalı token'lar, indirme)
 - **Veritabanı:** SQLite (tek dosya, sıfır yapılandırma)
 - **Güvenlik:** HMAC-imzalı bağlantılar, bcrypt ile şifre hash'leme, güvenlik başlıkları
 - **Operasyonlar:** Docker veya PM2 ile otomatik yeniden başlatma; `/healthz` ve `/readyz` health check'leri
+=======
+## Technologies
+- Frontend: HTML/CSS with minimal JavaScript
+- Backend: Node.js + Express (uploads, signed tokens, downloads)
+- Database: SQLite (single-file, zero-config)
+- Security: HMAC-signed links, bcrypt for passwords, security headers (CSP, Referrer-Policy, NoSniff)
+- Operations: Docker or PM2 for auto-restart; `/healthz` and `/readyz` for health checks
+>>>>>>> fdcaf2147072bdca40fc1365a6259795548e763f
 
 ## Kurulum ve Çalıştırma
 
@@ -25,9 +34,15 @@ Servisin güvenilir kalması için self-healing özellikler ekledik: health chec
 - Node.js v18 veya üzeri (önerilen: v20+)
 - npm (Node.js ile birlikte gelir)
 
+<<<<<<< HEAD
 ### Hızlı Başlangıç
 
 1. **Projeyi klonlayın veya indirin**
+=======
+### Adımlar
+
+1. **Projeyi indirin ve açın**
+>>>>>>> fdcaf2147072bdca40fc1365a6259795548e763f
    ```bash
    cd database
    ```
@@ -37,7 +52,17 @@ Servisin güvenilir kalması için self-healing özellikler ekledik: health chec
    npm install
    ```
    
+<<<<<<< HEAD
    > **Not:** `better-sqlite3` native modül olduğu için farklı Node.js sürümlerinde sorun çıkabilir. Hata alırsanız `node_modules` ve `package-lock.json` dosyalarını silip tekrar `npm install` çalıştırın.
+=======
+   **ÖNEMLİ:** Eğer `better-sqlite3` modülü ile ilgili hata alırsanız:
+   ```bash
+   # Windows PowerShell
+   rmdir /s /q node_modules
+   del package-lock.json
+   npm install
+   ```
+>>>>>>> fdcaf2147072bdca40fc1365a6259795548e763f
 
 3. **Sunucuyu başlatın**
    ```bash
@@ -50,9 +75,19 @@ Servisin güvenilir kalması için self-healing özellikler ekledik: health chec
 
 ### Sorun Giderme
 
+<<<<<<< HEAD
 **"NODE_MODULE_VERSION" hatası:**
 - `node_modules` klasörünü silin ve `npm install` çalıştırın
 - Projeyi paylaşırken `node_modules` klasörünü dahil etmeyin
 
 **Port 3000 kullanımda:**
 - `PORT` environment variable'ını değiştirin veya başka bir port kullanan servisi durdurun
+=======
+**"NODE_MODULE_VERSION" hatası alıyorsanız:**
+- Bu hata, `node_modules` klasörünün farklı bir Node.js sürümü ile derlenmiş olmasından kaynaklanır.
+- **Çözüm:** `node_modules` klasörünü silip `npm install` çalıştırın (yukarıdaki adımlar).
+- **Önleme:** Projeyi zip'lerken `node_modules` klasörünü dahil etmeyin. `.gitignore` dosyası zaten bunu engeller.
+
+**Port 3000 zaten kullanılıyorsa:**
+- `index.js` dosyasındaki `PORT` değişkenini değiştirin veya başka bir port kullanan servisi durdurun.
+>>>>>>> fdcaf2147072bdca40fc1365a6259795548e763f
