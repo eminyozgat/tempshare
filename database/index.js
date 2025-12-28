@@ -357,7 +357,7 @@ app.post('/api/upload', (req, res) => {
                 if (sanitizedPassword && sanitizedPassword.trim() !== '') {
                     if (!isValidPassword(sanitizedPassword)) {
                         return res.status(400).json({ error: 'Şifre 6-128 karakter arasında olmalıdır.' });
-                    }
+                    } 
                     password_hash = await bcrypt.hash(sanitizedPassword, 10);
                 }
 
