@@ -86,4 +86,5 @@ db.exec(triggerQuery);
 
 module.exports = db;
 module.exports.getDbPath = () => dbPath; // Veritabanı dosya yolunu döndür
+module.exports.close = () => db.close(); // Veritabanı bağlantısını kapat
 
