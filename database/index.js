@@ -337,7 +337,7 @@ app.post('/api/upload', (req, res) => {
 
             for (const file of files) {
                 const id = uuidv4();
-                
+                const correctedName = Buffer.from(file.originalname, 'latin1').toString('utf8');
                 // Dosya süresini hesapla
                 let addMs = 0;
                 switch (sanitizedDuration) {
@@ -361,10 +361,9 @@ app.post('/api/upload', (req, res) => {
                     password_hash = await bcrypt.hash(sanitizedPassword, 10);
                 }
 
-                // Dosya adını temizle (güvenlik için)
-                const sanitizedFilename = sanitizeString(file.originalname || 'unnamed', 255)
-                    .replace(/[\/\\\?\*\|<>:"]/g, '_') // Tehlikeli karakterleri değiştir
-                    .replace(/^\.+/, ''); // Başta nokta olmasın
+                const sanitizedFilename = sanitizeString(correctedName || 'unnamed', 255)
+                    .replace(/[\/\\\?\*\|<>:"]/g, '_')
+                    .replace(/^\.+/, '');
                 
                 const fileData = {
                     id,
