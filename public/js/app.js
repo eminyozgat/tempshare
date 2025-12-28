@@ -299,19 +299,58 @@ document.addEventListener("DOMContentLoaded", () => {
                 setTimeout(() => {
                     sections.upload.style.display = 'none';
                     sections.result.style.display = 'block';
-                    
-                    // Use the first file's token for the link (assuming single link for batch or first file)
-                    // In a real app, you might want to handle multiple links or a zip
-                    const token = data.files[0].token;
-                    const finalLink = window.location.origin + "/download.html?token=" + token;
-                    
-                    formEls.shareLink.value = finalLink;
-                    formEls.qrImage.src = `https://api.qrserver.com/v1/create-qr-code/?size=150x150&data=${finalLink}`;
-                    
+        
+                    const resultContainer = document.querySelector('.ts-result-content');
+                    const linkBox = document.querySelector('.ts-link-box');
+                    const qrArea = document.querySelector('.ts-qr-area');
+                    const newUploadBtn = document.getElementById("new-upload-btn");
+        
+                    // Önceki yüklemeden kalan listeyi temizle
+                    const oldList = document.getElementById('multi-file-list');
+                    if(oldList) oldList.remove();
+
+                    if (data.files.length > 1) {
+                        // ÇOKLU DOSYA DURUMU
+                        linkBox.style.display = 'none';
+                        qrArea.style.display = 'none';
+            
+                        let linksHtml = '<div id="multi-file-list" style="text-align: left; margin-bottom: 1.5rem;">';
+                        linksHtml += '<h3 style="font-size: 1.1rem; margin-bottom: 1rem; color: var(--text-main);">Dosyalarınız Hazır:</h3>';
+                        linksHtml += '<div style="max-height: 250px; overflow-y: auto; padding-right: 5px;">';
+            
+                        data.files.forEach(file => {
+                            const finalLink = window.location.origin + "/download.html?token=" + file.token;
+                            linksHtml += `
+                                <div style="background: var(--bg-hover); padding: 10px; border-radius: 10px; margin-bottom: 8px; border: 1px solid var(--border-color);">
+                                    <div style="font-size: 0.85rem; font-weight: 600; margin-bottom: 5px; color: var(--text-main); white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">${file.filename}</div>
+                                    <div style="display: flex; gap: 5px;">
+                                        <input type="text" value="${finalLink}" readonly style="flex: 1; padding: 6px; font-size: 0.75rem; border: 1px solid var(--border-color); border-radius: 6px; background: var(--bg-card); color: var(--text-main);">
+                                        <button type="button" onclick="navigator.clipboard.writeText('${finalLink}'); alert('Link Kopyalandı!');" class="ts-btn-icon" style="width: 34px; height: 34px; flex-shrink: 0;">📋</button>
+                                    </div>
+                                </div>`;
+                        });
+                        linksHtml += '</div></div>';
+            
+                        // Listeyi "Yeni Dosya Gönder" butonunun hemen üstüne ekle
+                        newUploadBtn.insertAdjacentHTML('beforebegin', linksHtml);
+            
+                    } else {
+                        // TEKLİ DOSYA DURUMU (Eski Düzen)
+                        linkBox.style.display = 'flex';
+                        qrArea.style.display = 'block';
+            
+                        const token = data.files[0].token;
+                        const finalLink = window.location.origin + "/download.html?token=" + token;
+            
+                        formEls.shareLink.value = finalLink;
+                        formEls.qrImage.src = `https://api.qrserver.com/v1/create-qr-code/?size=150x150&data=${finalLink}`;
+                    }
+        
                     document.getElementById("upload-btn").disabled = false;
                     document.getElementById("upload-btn").textContent = "Link Oluştur";
                 }, 500);
-            } else {
+            }
+            else {
                 alert("Hata: " + (data.error || "Yükleme başarısız."));
                 document.getElementById("upload-btn").disabled = false;
                 document.getElementById("upload-btn").textContent = "Link Oluştur";
