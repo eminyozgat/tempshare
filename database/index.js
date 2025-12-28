@@ -16,6 +16,26 @@ const reportManager = require('./src/database/reportManager');
 
 const app = express();
 
+// Log dosyasının adı
+const logDosyasi = path.join(__dirname, 'sistem_loglari.txt');
+
+// Her isteği yakalayıp dosyaya yazan kod
+app.use((req, res, next) => {
+    const zaman = new Date().toLocaleString('tr-TR'); // Türkçe tarih saat
+    const logSatiri = `[${zaman}] İSTEK: ${req.method} ${req.url} | IP: ${req.ip}\n`;
+
+    // Dosyaya ekle (Append)
+    fs.appendFile(logDosyasi, logSatiri, (err) => {
+        if (err) console.error("Log yazılamadı:", err);
+    });
+    
+    // Konsola da yazsın ki çalıştığını gör
+    console.log(`📝 Log Kaydedildi: ${logSatiri.trim()}`);
+    
+    next(); // İşleme devam et
+});
+// --- LOGLAMA SİSTEMİ BİTİŞİ ---
+
 // Railway gibi proxy arkasında çalışırken gerçek IP'yi almak için
 app.set('trust proxy', 1);
 
