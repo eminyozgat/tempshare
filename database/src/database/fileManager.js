@@ -1,3 +1,4 @@
+// File management operations
 const db = require('./db');
 const fs = require('fs'); // Dosyayı diskten silmek için gerekli
 

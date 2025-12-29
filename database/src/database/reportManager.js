@@ -1,3 +1,4 @@
+// Abuse report management
 const db = require('./db');
 const crypto = require('crypto');
 

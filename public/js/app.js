@@ -1,3 +1,4 @@
+// TempShare main application script
 document.addEventListener("DOMContentLoaded", () => {
     // --- ELEMENTLER ---
     const modalOverlay = document.getElementById("auth-modal");

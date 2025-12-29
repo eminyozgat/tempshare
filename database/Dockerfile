@@ -1,4 +1,5 @@
 # Node.js 20 LTS kullan
+# Docker image for TempShare
 FROM node:20-alpine
 
 # Çalışma dizini

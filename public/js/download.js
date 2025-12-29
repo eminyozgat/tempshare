@@ -1,3 +1,4 @@
+// TempShare download page script
 document.addEventListener("DOMContentLoaded", () => {
     // --- ELEMENTLER ---
     const themeBtn = document.getElementById("theme-toggle");

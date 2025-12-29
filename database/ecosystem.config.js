@@ -1,6 +1,7 @@
 // PM2 Ecosystem Configuration
 // Auto-restart için kullanılır
 // Kullanım: pm2 start ecosystem.config.js
+// Production deployment configuration
 
 module.exports = {
     apps: [{

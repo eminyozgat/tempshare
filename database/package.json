@@ -1,6 +1,6 @@
 {
   "name": "temp-share-db-B",
-  "version": "1.0.0",
+  "version": "1.0.0", 
   "type": "commonjs",
   "main": "index.js",
   "scripts": {
