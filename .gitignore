@@ -1,8 +1,11 @@
+# Dependencies
 node_modules/
 
+# Database
 data/
 data/temp_share.db
 
+# Uploads
 uploads/
 
 *.log
